@@ -90,9 +90,9 @@ void MainWindow::paintEvent(QPaintEvent *)
                 if (fabs(dxMove - xMove) > 0.5)
                 {
                     xMove += 1;
-                    yMove = - p * pow(xMove, 2);
+                    yMove = p * pow(xMove, 2);
                     xDisplay1 = xMove;
-                    yDisplay1 = yMove / (scale * scale);
+                    yDisplay1 = yMove;
                 }
                 //绘制节点圆和新节点之间的直线
                 painterline.drawLine(QPoint(xDisplay + width/2 + 50, yDisplay + height/2), QPoint(xDisplay1 + width/2 + 50, yDisplay1 + height/2));
