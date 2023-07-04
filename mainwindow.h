@@ -5,6 +5,9 @@
 #include<QDebug>
 #include<QPainter>          //调用画家类
 #include<math.h>            //调用数学幂函数
+#include<QPen>              //调用画笔
+#include<QTextEdit>         //调用文本显示框
+#include<QVector>           //调用容器
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -24,14 +27,15 @@ public:
     //定义非圆曲线的起点坐标和终点坐标
     double xStart, dxMove;
     //定义抛物线的参数p
-    double p;
+    int p;
     //定义椭圆半长轴的参数a
-    double a;
+    int a;
     //定义椭圆半短轴的参数b
-    double b;
+    int b;
 
     //定义抛物线中出现的误差圆圆心坐标、实际显示在窗口的圆心坐标和节点坐标
-    int xo, yo, xDisplay, yDisplay, xDisplay1, yDisplay1, r;
+    int xo, yo, xDisplay, yDisplay, xDisplay1, yDisplay1,
+        xDisplay_1, yDisplay_1, xDisplay1_1, yDisplay1_1, r;
     double xm, ym;
     //定义抛物线切线联立误差圆的一元四次方程参数
     double a4, b4, c4, d4, e4;

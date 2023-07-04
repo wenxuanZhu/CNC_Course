@@ -15,6 +15,54 @@ MainWindow::MainWindow(QWidget *parent)
         //把椭圆半短轴的参数传给变量b
         b = ui->Parameter_p->text().toInt();
     });
+
+    connect(ui->Display, &QPushButton::clicked, this, [=](){
+        //设置NCDispaly这个文本框不要自动换行
+        ui->NCDisplay->setWordWrapMode(QTextOption::NoWrap);
+        ui->NCDisplay->append("N1 G54 G90 M03 M08 S10000 F200");
+        ui->NCDisplay->append("N2 G00 G42 D01 X0 Y0");
+
+        double j = 3;
+
+        QVector<int> xCoords;
+        QVector<int> yCoords;
+
+        for (const QPointF& point : polygon1)
+        {
+            xCoords.append(point.x());  // 提取 x 坐标并添加到 xCoords 中
+            yCoords.append(point.y());  // 提取 y 坐标并添加到 yCoords 中
+        }
+        qDebug()<<"1";
+        int end = 0;
+        for (int i = 1; end == 0; i++)
+        {
+            qDebug()<<"3";
+            //获取行数
+            ui->NCDisplay->insertPlainText("N");
+            QString text = QString::number(j);
+            ui->NCDisplay->insertPlainText(text);
+            j++;
+
+            //获取X和Y坐标
+            QString coordinate = QString("X %1").arg(xCoords[i - 1]);
+            QString coordinate1 = QString("Y %1").arg(yCoords[i - 1]);
+            int endX = xCoords.at(i - 1);
+            int endY = yCoords.at(i - 1);
+
+            if (endX != 1234 && endY != 1234)
+            {
+            ui->NCDisplay->insertPlainText("G01");
+            ui->NCDisplay->insertPlainText(coordinate);
+            ui->NCDisplay->insertPlainText(coordinate1);
+            ui->NCDisplay->insertPlainText("\n");
+            }
+            else
+            {
+                end = 1;
+            }
+        }
+        qDebug()<<"2";
+    });
 }
 
 //调用绘图事件函数
@@ -32,9 +80,9 @@ void MainWindow::paintEvent(QPaintEvent *)
     //绘制画板的边框
     painterBoard.drawRect(QRect(50,50+20,600,600));
     //让画家返回初始状态
-    painterBoard.restore();
+    //painterBoard.restore();
 
-    QPainter painterParabola(this);
+    QPainter painterCurve(this);
     QPainter painterRound(this);
     QPainter painterline(this);
 
@@ -58,12 +106,12 @@ void MainWindow::paintEvent(QPaintEvent *)
                 continue;
             }
 
-            painterParabola.drawPoint(xStart + width/2 + 50, yStart + height/2);
+            painterCurve.drawPoint(xStart + width/2 + 50, yStart + height/2);
         }
 
         //绘制抛物线曲线的逼近直线
         //初始的误差圆定义为圆心(0,0)的圆
-        for ( dxMove = xo + r + 1; dxMove < width/2; ++dxMove)
+        for ( dxMove = xo + r + 1; dxMove < width/2; dxMove += 0.1)
         {
             //设置笔的颜色为红色
             QPen pen(QColor(255, 0, 0));
@@ -73,31 +121,65 @@ void MainWindow::paintEvent(QPaintEvent *)
             painterRound.setPen(pen);
             xDisplay = xo;
             yDisplay = yo / (scale * scale);
-            qDebug()<<"2";
-            painterRound.drawEllipse(QPoint(xDisplay + width/2 + 50, yDisplay + height/2),r,r);
-            qDebug()<<"3";
+            xDisplay_1 = -xo;
+            yDisplay_1 = yo / (scale * scale);
+            //将找到的节点圆的坐标放入polygon中便于后续textedit显示
+            polygon1.append(QPoint(xo, yo));
+            //绘制右半抛物线的节点圆
+            painterRound.drawEllipse
+                (QPoint(xDisplay + width/2 + 50, yDisplay + height/2),r,r);
+            //绘制左半抛物线的节点圆
+            painterRound.drawEllipse
+                (QPoint(xDisplay_1 + width/2 + 50, yDisplay_1 + height/2),r,r);
+            //painterRound.restore();
+            update();
 
             double k = 2 * p * dxMove;
-            double b = p * pow(dxMove, 2);
-            double temp = fabs(k * (xo - dxMove) + b - yo);
-            double d = temp / pow((k * k + 1), (1 / 2));
+            double b = - p * pow(dxMove, 2);
+            double temp = fabs(k * xo + b - yo);
+            double d = temp / pow((k * k + 1), (1.0 / 2));
+            double temp1 = fabs(d - r);
 
-            if (fabs(d - r) < 5)
+            if (temp1 < 0.5)
             {
                 int xMove = dxMove;
                 int yMove = 0;
+                double temp2 = fabs(dxMove - xMove);
+
                 //将最终求得的解四舍五入
-                if (fabs(dxMove - xMove) > 0.5)
+                if (temp2 > 0.5)
                 {
-                    xMove += 1;
-                    yMove = p * pow(xMove, 2);
-                    xDisplay1 = xMove;
-                    yDisplay1 = yMove;
+                    xMove++;
                 }
-                //绘制节点圆和新节点之间的直线
-                painterline.drawLine(QPoint(xDisplay + width/2 + 50, yDisplay + height/2), QPoint(xDisplay1 + width/2 + 50, yDisplay1 + height/2));
-                xo = xMove;
-                yo = yMove;
+                //计算最终获得的节点圆的y坐标
+                yMove = - p * pow(xMove, 2);
+                //将double类型的动点x重新赋予一个int的动点x的值
+                dxMove = xMove;
+                xDisplay1 = xMove;
+                yDisplay1 = yMove / (scale * scale);
+                xDisplay1_1 = -xMove;
+                yDisplay1_1 = yMove / (scale * scale);
+
+                //防止超出绘图板的上方
+                if (yDisplay1 + height/2 < 70)
+                {
+                    polygon1.append(QPoint(1234, 1234));
+                    break;
+                }
+                else
+                {
+                    //绘制节点圆和新节点之间的直线
+                    //绘制抛物线的右半部分
+                    painterline.drawLine
+                        (QPoint(xDisplay + width/2 + 50, yDisplay + height/2),
+                         QPoint(xDisplay1 + width/2 + 50, yDisplay1 + height/2));
+                    //绘制抛物线的左半部分
+                    painterline.drawLine
+                        (QPoint(xDisplay_1 + width/2 + 50, yDisplay_1 + height/2),
+                         QPoint(xDisplay1_1 + width/2 + 50, yDisplay1_1 + height/2));
+                    xo = xMove;
+                    yo = yMove;
+                }
             }
             else
             {
@@ -144,10 +226,18 @@ void MainWindow::paintEvent(QPaintEvent *)
 //        }
     }
 
+    //绘制椭圆曲线
+    if (a != 0 && b != 0)
+    {
+
+    }
+
 }
 
 MainWindow::~MainWindow()
 {
     delete ui;
 }
+
+
 
