@@ -10,65 +10,94 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->startPaint, &QPushButton::clicked, this, [=](){
         //把抛物线的参数传给变量p
         p = ui->Parameter_p->text().toInt();
+        //qDebug()<<p;
         //把椭圆半长轴的参数传给变量a
-        a = ui->Parameter_p->text().toInt();
+        a = ui->Parameter_a->text().toInt();
         //把椭圆半短轴的参数传给变量b
-        b = ui->Parameter_p->text().toInt();
+        b = ui->Parameter_b->text().toInt();
     });
 
     connect(ui->Display, &QPushButton::clicked, this, [=](){
+        //清空归零
+        ui->NCDisplay->clear();
         //设置NCDispaly这个文本框不要自动换行
         ui->NCDisplay->setWordWrapMode(QTextOption::NoWrap);
         ui->NCDisplay->append("N1 G54 G90 M03 M08 S10000 F200");
         ui->NCDisplay->append("N2 G00 G42 D01 X0 Y0");
+        ui->NCDisplay->insertPlainText("\n");
 
         double j = 3;
+        int j1 = 0;
 
         QVector<int> xCoords;
         QVector<int> yCoords;
 
-        for (const QPointF& point : polygon1)
+        // 提取x和y的坐标并添加到xCoords和yCoords中
+        for (const QPoint& point : polygon1)
         {
-            xCoords.append(point.x());  // 提取 x 坐标并添加到 xCoords 中
-            yCoords.append(point.y());  // 提取 y 坐标并添加到 yCoords 中
+            xCoords.append(point.x());
+            yCoords.append(point.y());
+//            qDebug()<<point.x();
+//            qDebug()<<point.y();
         }
-        qDebug()<<"1";
+
         int end = 0;
+
         for (int i = 1; end == 0; i++)
         {
-            qDebug()<<"3";
-            //获取行数
-            ui->NCDisplay->insertPlainText("N");
-            QString text = QString::number(j);
-            ui->NCDisplay->insertPlainText(text);
-            j++;
-
-            //获取X和Y坐标
-            QString coordinate = QString("X %1").arg(xCoords[i - 1]);
-            QString coordinate1 = QString("Y %1").arg(yCoords[i - 1]);
-            int endX = xCoords.at(i - 1);
-            int endY = yCoords.at(i - 1);
+            int endX = xCoords[i - 1];
+            int endY = yCoords[i - 1];
 
             if (endX != 1234 && endY != 1234)
             {
-            ui->NCDisplay->insertPlainText("G01");
-            ui->NCDisplay->insertPlainText(coordinate);
-            ui->NCDisplay->insertPlainText(coordinate1);
-            ui->NCDisplay->insertPlainText("\n");
+                //获取行数
+                ui->NCDisplay->insertPlainText("N");
+                QString text = QString::number(j);
+                ui->NCDisplay->insertPlainText(text);
+                j += 1;
+
+                //获取X和Y坐标
+                QString coordinate = QString("X %1").arg(xCoords[i - 1]);
+                QString coordinate1 = QString("Y %1").arg(yCoords[i - 1]);
+
+                ui->NCDisplay->insertPlainText(" G01 ");
+                ui->NCDisplay->insertPlainText(coordinate);
+                ui->NCDisplay->insertPlainText(coordinate1);
+                ui->NCDisplay->insertPlainText("\n");
+                //polygon1.clear();
             }
             else
             {
                 end = 1;
+                j1 = 2 * (j - 3) - 1;
+                polygon1.clear();
             }
         }
-        qDebug()<<"2";
+        //结尾
+        ui->NCDisplay->insertPlainText("N");
+        QString text2 = QString::number(j);
+        j += 1;
+        ui->NCDisplay->insertPlainText(text2);
+        ui->NCDisplay->insertPlainText(" G40 X0 Y0");
+        ui->NCDisplay->insertPlainText("\n");
+        ui->NCDisplay->insertPlainText("N");
+        QString text3 = QString::number(j);
+        j = 3;
+        ui->NCDisplay->insertPlainText(text3);
+        ui->NCDisplay->insertPlainText("M30");
+        ui->NCDisplay->insertPlainText("\n");
+        ui->NCDisplay->insertPlainText("逼近的直线段数为：");
+        QString text4 = QString::number(j1);
+        ui->NCDisplay->insertPlainText(text4);
     });
 }
+
 
 //调用绘图事件函数
 //在qt的绘图里面，y轴正方向朝下，x轴正方向朝右
 void MainWindow::paintEvent(QPaintEvent *)
 {
+    qDebug()<<p;
     //实例化画家对象
     QPainter painterBoard(this);
     //设置画刷
@@ -93,13 +122,15 @@ void MainWindow::paintEvent(QPaintEvent *)
     xo = 0;
     yo = 0;
     r = 10;
+    int xMove;
+    int yMove;
 
-    if ( p != 0.0 )
+    if ( p != 0 )
     {
         //绘制抛物线曲线
-        for ( xStart = -width/2; xStart <= width/2; ++xStart)
+        for ( xStart = -width/2; xStart <= width/2; xStart += 1)
         {
-            const float yStart = - p * xStart * xStart / (scale * scale);
+            const float yStart = -p * xStart * xStart / (scale * scale);
 
             if (yStart + height/2 < 70)
             {
@@ -111,7 +142,7 @@ void MainWindow::paintEvent(QPaintEvent *)
 
         //绘制抛物线曲线的逼近直线
         //初始的误差圆定义为圆心(0,0)的圆
-        for ( dxMove = xo + r + 1; dxMove < width/2; dxMove += 0.1)
+        for ( dxMove = xo + r + 1; dxMove < width/2; dxMove += 1)
         {
             //设置笔的颜色为红色
             QPen pen(QColor(255, 0, 0));
@@ -123,14 +154,10 @@ void MainWindow::paintEvent(QPaintEvent *)
             yDisplay = yo / (scale * scale);
             xDisplay_1 = -xo;
             yDisplay_1 = yo / (scale * scale);
-            //将找到的节点圆的坐标放入polygon中便于后续textedit显示
-            polygon1.append(QPoint(xo, yo));
             //绘制右半抛物线的节点圆
-            painterRound.drawEllipse
-                (QPoint(xDisplay + width/2 + 50, yDisplay + height/2),r,r);
+            painterRound.drawEllipse(QRect(xDisplay + width/2 + 50 - r, yDisplay + height/2 - r, 2*r, 2*r));
             //绘制左半抛物线的节点圆
-            painterRound.drawEllipse
-                (QPoint(xDisplay_1 + width/2 + 50, yDisplay_1 + height/2),r,r);
+            painterRound.drawEllipse(QRect(xDisplay_1 + width/2 + 50 - r, yDisplay_1 + height/2 - r, 2*r, 2*r));
             //painterRound.restore();
             update();
 
@@ -142,17 +169,22 @@ void MainWindow::paintEvent(QPaintEvent *)
 
             if (temp1 < 0.5)
             {
-                int xMove = dxMove;
-                int yMove = 0;
-                double temp2 = fabs(dxMove - xMove);
+                //将找到的节点圆的坐标放入polygon中便于后续textedit显示
+                polygon1.append(QPoint(xo, yo));
 
+                xMove = dxMove;
+                //计算最终获得的节点圆的y坐标
+                yMove = - p * pow(xMove, 2);
+//                qDebug()<<xMove;
+//                qDebug()<<yMove;
+
+                double temp2 = dxMove - xMove;
                 //将最终求得的解四舍五入
                 if (temp2 > 0.5)
                 {
-                    xMove++;
+                    xMove += 1;
                 }
-                //计算最终获得的节点圆的y坐标
-                yMove = - p * pow(xMove, 2);
+
                 //将double类型的动点x重新赋予一个int的动点x的值
                 dxMove = xMove;
                 xDisplay1 = xMove;
@@ -163,6 +195,10 @@ void MainWindow::paintEvent(QPaintEvent *)
                 //防止超出绘图板的上方
                 if (yDisplay1 + height/2 < 70)
                 {
+                    if (yDisplay1 + height/2 >= 70 || xDisplay1 + width/2 + 50 <= 650)
+                    {
+                    polygon1.append(QPoint(xMove, yMove));
+                    }
                     polygon1.append(QPoint(1234, 1234));
                     break;
                 }
@@ -177,9 +213,9 @@ void MainWindow::paintEvent(QPaintEvent *)
                     painterline.drawLine
                         (QPoint(xDisplay_1 + width/2 + 50, yDisplay_1 + height/2),
                          QPoint(xDisplay1_1 + width/2 + 50, yDisplay1_1 + height/2));
-                    xo = xMove;
-                    yo = yMove;
                 }
+                xo = xMove;
+                yo = yMove;
             }
             else
             {
